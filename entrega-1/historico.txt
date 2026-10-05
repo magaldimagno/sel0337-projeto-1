@@ -1,0 +1,22 @@
+HISTÓRICO DE COMANDOS - CHECKPOINT 1
+Eduardo Magaldi Magno - 15448780
+Lucas Garcia Pereira - 15496307
+
+===========================================
+
+python --version
+sudo apt install python3-venv -y
+python3 -m venv 8007
+source 8007/bin/activate
+cd 8007
+pip freeze
+pip3 install gpiozero RPi.GPIO
+pip freeze
+python
+quit()
+nano blink.py
+python blink.py
+nano counter.py
+python counter.py
+deactivate
+history | tail -n 20 > historico.txt
