@@ -154,7 +154,7 @@ Figura 11 - *Printscreen* do osciloscópio com *duty-cycle* de 100%.
 
 ### Evidência - Vídeo do Funcionamento da Aplicação
 
-[Vídeo de demonstração do projeto](https://youtu.be/)
+[Vídeo de demonstração do projeto](https://youtu.be/lTJ-TaIqlH0)
 
 ---
 
