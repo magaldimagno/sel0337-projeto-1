@@ -152,7 +152,7 @@ Figura 10 - *Printscreen* do osciloscópio com *duty-cycle* de 90%.
 
 Figura 11 - *Printscreen* do osciloscópio com *duty-cycle* de 100%.
 
-### Evidência - Vídeo do Funcionamento
+### Evidência - Vídeo do Funcionamento da Aplicação
 
 [Vídeo de demonstração do projeto](https://youtu.be/)
 
