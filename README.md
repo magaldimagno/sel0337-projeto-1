@@ -29,128 +29,23 @@ Nesta primeira etapa, foi configurado um ambiente virtual Python isolado (`venv`
 | Botão (*Push Button*)     | `GPIO 24` (Pino Físico 18)      | Entrada digital (`GPIO.IN`) configurada com resistor de *pull-up* interno (`GPIO.PUD_UP`). |
 | GND (Terra)               | `Ground` (Pinos Físicos 6 e 14) | Referência comum (0 V) para o cátodo do LED e para o terminal do botão.                    |
 
-### Códigos
+### Códigos - Arquitetura e Lógica de Implementação
 
 #### 1. Acionamento de LED por Botão (`blink.py`)
+Para evitar o uso bloqueante de *polling* contínuo na CPU, a leitura do botão e o acionamento do LED foram implementados por meio de interrupções de borda gerenciadas via software.
 
-```python
-"""
-Checkpoint 1 - Botão
-Eduardo Magaldi Magno - 15448780
-Lucas Garcia Pereira - 15496307
-"""
-
-import RPi.GPIO as GPIO
-import time
-
-# Define o padrão de numeração dos pinos como Broadcom SOC (BCM)
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)  # Desabilita avisos de pinos já configurados
-
-# Configura o pino GPIO 23 como saída digital para controlar o LED
-GPIO.setup(23, GPIO.OUT)
-
-# Função de callback executada automaticamente ao detectar mudança de estado no botão
-def button(pin):
-    # Com Pull-Up ativo: nível ALTO (True) = solto | nível BAIXO (False) = pressionado
-    if GPIO.input(pin):
-        print("released")
-        GPIO.output(23, False)  # Apaga o LED ao soltar o botão
-    else:
-        print("pressed")
-        GPIO.output(23, True)   # Acende o LED ao pressionar o botão
-
-# Configura o pino GPIO 24 como entrada digital ativando o resistor de Pull-Up interno
-GPIO.setup(24, GPIO.IN, GPIO.PUD_UP)
-
-# Registra a detecção de eventos em ambas as bordas (subida e descida) com debounce de 200 ms
-GPIO.add_event_detect(24, GPIO.BOTH, callback=button, bouncetime=200)
-
-try:
-    # Mantém o programa principal ativo aguardando os eventos de borda
-    while True:
-        time.sleep(0.1)
-except KeyboardInterrupt:
-    # Trata a interrupção por teclado (CTRL+C) de forma segura
-    print("\nPrograma interrompido pelo usuário.")
-finally:
-    # Libera e reseta os pinos GPIO antes de encerrar o script
-    print("Limpando configurações do GPIO.")
-    GPIO.cleanup()
-```
+- **Configuração em *Pull-Up* e Lógica Invertida:** O pino `GPIO 24` foi configurado com o resistor de *pull-up* interno habilitado (`GPIO.PUD_UP`), mantendo nível lógico alto (`True`) com a chave aberta e caindo para nível lógico baixo (`False`) quando pressionada ao GND. Na função de *callback*, essa leitura é avaliada de forma complementar para acender o LED (`GPIO 23`) no pressionamento e apagá-lo na soltura.
+- **Detecção Assíncrona e Filtro de *Debounce*:** A função `GPIO.add_event_detect` monitora ambas as bordas de transição (`GPIO.BOTH`) e dispara a rotina `button(pin)` apenas quando há mudança de estado físico. Foi aplicado um parâmetro `bouncetime=200` (200 ms) para filtrar trepidações mecânicas do contato (*bouncing*).
+- **Liberação Segura de Recursos (*Cleanup*):** O laço principal é protegido por uma estrutura `try-except KeyboardInterrupt` associada ao bloco `finally`. Ao encerrar o programa via `CTRL+C`, o método `GPIO.cleanup()` reseta os pinos utilizados para alta impedância, prevenindo curtos-circuitos em execuções futuras.
 
 #### 2. Contagem Regressiva com Validação de Entrada (`counter.py`)
+O sistema solicita ao usuário um tempo em segundos via terminal, realiza a validação de integridade da entrada e executa um cronômetro regressivo antes de acionar a saída digital do LED.
 
-```python
-"""
-Checkpoint 1 - Contador
-Eduardo Magaldi Magno - 15448780
-Lucas Garcia Pereira - 15496307
-"""
-
-import RPi.GPIO as GPIO
-import time
-
-# Configuração do pino do LED utilizando numeração BCM
-pin_led = 23
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(pin_led, GPIO.OUT)
-
-def executar_contagem(tempo_total):
-    # Laço de repetição decrescente de tempo_total até 0 (passo -1)
-    for tempo_restante in range(tempo_total, -1, -1):
-        # Calcula o quociente (minutos) e o resto da divisão por 60 (segundos)
-        minutos, segundos = divmod(tempo_restante, 60)
-        # Formata os valores no padrão MM:SS com dois dígitos preenchidos com zero
-        tempo_formatado = '{:02d}:{:02d}'.format(minutos, segundos)
-        # Atualiza a exibição na mesma linha do terminal usando retorno de carro (\r)
-        print(f"Tempo restante: {tempo_formatado}", end='\r')
-        # Base de tempo de 1 segundo para a contagem regressiva
-        time.sleep(1)
-
-    # Ao término da contagem, exibe mensagem final e aciona a saída do LED
-    print("\nContagem finalizada! LED aceso.")
-    GPIO.output(pin_led, True)
-    time.sleep(2)
-
-def main():
-    # Laço de validação da entrada do usuário
-    while True:
-        try:
-            entrada = input("Digite o tempo da contagem em segundos: ")
-
-            # Type casting da string de entrada para número inteiro
-            tempo_segundos = int(entrada)
-            
-            # Verifica se o valor inserido é positivo
-            if tempo_segundos < 0:
-                print("Erro: O número deve ser positivo. Tente novamente.")
-                continue
-            break
-            
-        except ValueError:
-            # Captura erro caso o usuário digite caracteres não numéricos ou valores não inteiros
-            print("Erro: O valor digitado deve ser um número inteiro. Tente novamente.")
-
-    # Executa a contagem regressiva passando o parâmetro validado
-    executar_contagem(tempo_segundos)
-
-if __name__ == "__main__":
-    try:
-        # Garante que o LED inicie apagado
-        GPIO.output(pin_led, False)
-        main()
-    except KeyboardInterrupt:
-        # Tratamento da interrupção via teclado (CTRL+C)
-        print("\nPrograma interrompido pelo usuário.")
-    finally:
-        # Desconecta e limpa as configurações das portas GPIO utilizadas
-        print("Limpando configurações do GPIO.")
-        GPIO.cleanup()
-```
+- **Validação de Entrada e *Type Casting*:** Como a leitura via `input()` retorna uma string, o dado é convertido para inteiro (`int()`) dentro de um bloco `try-except ValueError`. Entradas alfanuméricas ou valores de ponto flutuante são interceptados sem interromper a execução do script, enquanto uma estrutura condicional rejeita números negativos.
+- **Decomposição de Tempo e Sobrescrita em Linha:** Na função modularizada `executar_contagem()`, o tempo restante é dividido em minutos e segundos em uma única operação via `divmod(tempo_restante, 60)` e formatado na máscara `{:02d}:{:02d}`. Para evitar o empilhamento de linhas no terminal a cada ciclo de `time.sleep(1)`, utilizou-se o retorno de carro (`end='\r'`) na função `print()`, sobrescrevendo dinamicamente a mesma linha até o disparo final do LED em `00:00`.
 
 ### Evidências - Histórico de Comandos
+Abaixo está o registro dos comandos utilizados para criação e ativação do ambiente virtual isolado `8007` (formado pelos dígitos finais dos NUSPs da dupla), instalação local dos pacotes `gpiozero` e `RPi.GPIO` e execução dos scripts:
 
 ```bash
 HISTÓRICO DE COMANDOS - CHECKPOINT 1
