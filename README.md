@@ -154,13 +154,29 @@ Figura 11 - *Printscreen* do osciloscópio com *duty-cycle* de 100%.
 
 ### Evidência - Vídeo do Funcionamento
 
+[Vídeo de demonstração do projeto](https://youtu.be/)
+
 ---
 
 ## Parte 3 - 
 
 ### Mapeamento de Hardware
-| Componente        | Pino RASP | Função                                                  |
-|-------------------|-----------|---------------------------------------------------------|
+| Componente        | Pino RASP                         | Função                                                                                |
+|-------------------|-----------------------------------|---------------------------------------------------------------------------------------|
+| LED Principal     | GPIO 23 (Pino Físico 16)          | Saída digital modulada pelo laço principal com frequência dinâmica (lenta ou rápida). |
+| Botão de Controle | GPIO 24 (Pino Físico 18)          | Entrada digital com pull-up interno para alternância de frequência de pisca do LED.   |
+| Buzzer            | GPIO 25 (Pino Físico 22)          | Saída digital acionada ao término da contagem regressiva para sinalização sonora.     |
+| GND (Terra)       | Ground (Pinos Físicos 6, 14 e 20) | Referência comum de terra (0 V) para todos os periféricos.                            |
 
-### Códigos
+### Códigos - Arquitetura e Lógica de Implementação
+
+#### 1. Aplicação Concorrente com Múltiplas Threads e Proteção por Mutex (`mutex.py`)
+  
+Em sistemas operacionais baseados em Linux embarcado (como o Raspberry Pi OS), o kernel gerencia a execução de processos e *threads* de forma concorrente através de escalonadores como o *Round-Robin*. Diferente de microcontroladores sem sistema operacional, a manipulação de tempos por *delays* ou temporizadores não ocorre em tempo real estrito. O uso de *threads* (`threading`) permite executar tarefas paralelas — como a contagem regressiva no terminal, a leitura assíncrona do botão e o piscar do LED — dentro do mesmo espaço de memória do processo principal.   
+
+- **Concorrência e Divisão de Tarefas:** O script inicia instanciando duas threads em segundo plano (*daemons*):
+  1. `t_contagem`: Gerencia o loop contínuo de entrada de dados via terminal, execução da contagem regressiva em formato `MM:SS`, acionamento do buzzer por 2 segundos ao término e disparo de uma função de *callback*.
+  2. `t_botao`: Monitora de forma contínua o estado lógico do botão conectado ao `GPIO 24` para detectar transições de descida (*falling edge*), contornando eventuais restrições de interrupções de hardware assíncronas no ambiente.
+- **Exclusão Mútua com *Mutex* (`threading.Lock()`):** Como a variável de estado `frequencia_rapida` é acessada e modificada concorretamente pela *thread* do botão e lida pelo loop principal (que controla o piscar do LED), há risco de condições de corrida (*race conditions*). Para garantir a atomicidade e a integridade dessa região crítica, empregou-se um objeto *mutex* (`mutex = threading.Lock()`) utilizando o gerenciador de contexto `with mutex:`. Isso assegura que apenas uma *thread* por vez modifique ou leia o parâmetro de temporização do LED.
+- **Tratamento de Exceções e Limpeza:** O fluxo principal gerencia o acionamento cíclico do LED (`GPIO 23`) com atrasos ajustáveis via *mutex* (0.1s para frequência rápida ou 0.5s para lenta). Interrupções via teclado (`KeyboardInterrupt / CTRL+C`) acionam o bloco `finally`, que executa `GPIO.cleanup()` para desativar as portas GPIO de forma segura.
 
