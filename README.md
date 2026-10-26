@@ -77,12 +77,82 @@ history | tail -n 20 > historico.txt
 ## Parte 2 - 
 
 ### Mapeamento de Hardware
-| Componente        | Pino RASP | Função                                                  |
-|-------------------|-----------|---------------------------------------------------------|
+| Componente               | Pino RASP                | Função                                                                                                                                                                                   |
+|--------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| LED                      | GPIO 18 (Pino Físico 12) | Saída digital configurada para modulação por largura de pulso (`GPIO.PWM`) para controle de brilho e gerenciada pela biblioteca gpiozero para sinalização de objeto no raio de alcance. |
+| Sensor HC-SR04 (Trigger) | GPIO 24 (Pino Físico 18) | Saída digital para envio do pulso ultrassônico de curta duração.                                                                                                                         |
+| Sensor HC-SR04 (Echo)    | GPIO 23 (Pino Físico 16) | Entrada digital para captação do pulso refletido (com divisor resistivo de nível lógico).                                                                                                |
+| Alimentação e GND        | 5V, 3V3 e Ground         | Linhas de alimentação dos sensores e referências comuns de terra da placa.                                                                                                               |
 
-### Códigos
+### Códigos - Arquitetura e Lógica de Implementação
+
+#### 1. Controle de Intensidade Luminosa via PWM (`pwm.py`)
+
+O uso de PWM (*Pulse Width Modulation*) é essencial em sistemas embarcados pois permite simular níveis de tensão intermediários variando o ciclo de trabalho (*duty cycle*), sem comprometer a integridade ou a corrente nominal das cargas.
+
+- **Configuração de Frequência e Instanciação:** O pino `GPIO 18` é configurado como saída digital e associado a um objeto PWM com frequência fixa de 100 Hz (`GPIO.PWM(pin, 100)`), utilizando a biblioteca `RPi.GPIO`. O sinal é iniciado com *duty cycle* em 0% (`pwm_led.start(0)`).
+
+- **Variação Dinâmica e Visualização:** Dois laços de repetição incrementam (0% a 100%) e decremento (100% a 0%) o fator de trabalho em passos de 10% a cada 5 segundos (`pwm_led.ChangeDutyCycle(i)`). Esse intervalo estendido permite a observação visual direta da transição de brilho no LED, bem como a captura das variações de largura de pulso nas pontas de prova do osciloscópio.
+
+- **Encerramento Seguro:** O bloco `finally` assegura a desativação controlada do canal PWM (`pwm_led.stop()`) e a liberação das portas (`GPIO.cleanup()`) ao interromper o script.
+
+#### 2. Sistema de Detecção de Proximidade com Sensor Ultrassônico (`aplicacao.py`)
+
+Esta aplicação integra o sensor HC-SR04 e um atuador luminoso utilizando a interface orientada a objetos de alto nível da biblioteca `gpiozero`.
+
+- **Abstração do Sensor de Distância:** A classe `DistanceSensor(echo=23, trigger=24)` gerencia de forma transparente os tempos de disparo e eco do pulso ultrassônico, calculando a distância do obstáculo com base no tempo de propagação do eco.
+
+- **Associação Assíncrona de Eventos (*Callbacks* de Faixa):** Em vez de condicionais manuais pesadas no loop de varredura, o código emprega gatilhos integrados da biblioteca (`sensor.when_in_range = led.on` e `sensor.when_out_of_range = led.off`). O LED indicador acende automaticamente sempre que um objeto entra na zona de detecção padrão (abaixo de 50 cm) e apaga ao sair do escopo.
+
+- **Monitoramento e Tratamento de Exceções:** O loop principal obtém continuamente a distância métrica bruta (`sensor.distance`), converte-a para centímetros (`* 100`) para legibilidade e imprime o valor no terminal a cada 1 segundo. A interrupção via teclado (`KeyboardInterrupt`) encerra o processo de forma limpa, aproveitando o gerenciamento nativo de liberação de pinos da arquitetura gpiozero.
 
 ### Evidências - Fotos do Osciloscópio
+
+![Osciloscópio - Duty-Cycle de 0%](img/scope-dc-0.jpg)
+
+Figura 1 - *Printscreen* do osciloscópio com *duty-cycle* de 0%.
+
+![Osciloscópio - Duty-Cycle de 10%](img/scope-dc-10.jpg)
+
+Figura 2 - *Printscreen* do osciloscópio com *duty-cycle* de 10%.
+
+![Osciloscópio - Duty-Cycle de 20%](img/scope-dc-20.jpg)
+
+Figura 3 - *Printscreen* do osciloscópio com *duty-cycle* de 20%.
+
+![Osciloscópio - Duty-Cycle de 30%](img/scope-dc-30.jpg)
+
+Figura 4 - *Printscreen* do osciloscópio com *duty-cycle* de 30%.
+
+![Osciloscópio - Duty-Cycle de 40%](img/scope-dc-40.jpg)
+
+Figura 5 - *Printscreen* do osciloscópio com *duty-cycle* de 40%.
+
+![Osciloscópio - Duty-Cycle de 50%](img/scope-dc-50.jpg)
+
+Figura 6 - *Printscreen* do osciloscópio com *duty-cycle* de 50%.
+
+![Osciloscópio - Duty-Cycle de 60%](img/scope-dc-60.jpg)
+
+Figura 7 - *Printscreen* do osciloscópio com *duty-cycle* de 60%.
+
+![Osciloscópio - Duty-Cycle de 70%](img/scope-dc-70.jpg)
+
+Figura 8 - *Printscreen* do osciloscópio com *duty-cycle* de 70%.
+
+![Osciloscópio - Duty-Cycle de 80%](img/scope-dc-80.jpg)
+
+Figura 9 - *Printscreen* do osciloscópio com *duty-cycle* de 80%.
+
+![Osciloscópio - Duty-Cycle de 90%](img/scope-dc-90.jpg)
+
+Figura 10 - *Printscreen* do osciloscópio com *duty-cycle* de 90%.
+
+![Osciloscópio - Duty-Cycle de 100%](img/scope-dc-100.jpg)
+
+Figura 11 - *Printscreen* do osciloscópio com *duty-cycle* de 100%.
+
+### Evidência - Vídeo do Funcionamento
 
 ---
 
@@ -94,4 +164,3 @@ history | tail -n 20 > historico.txt
 
 ### Códigos
 
-### Evidência - Vídeo do Funcionamento
